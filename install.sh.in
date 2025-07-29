@@ -315,6 +315,9 @@ elif [ $ID == "kali" ]; then
 elif [ $ID == "parrot" ]; then
 	echo '*** Detected Parrot OS, creating /etc/apt/sources.list.d/zerotier.list'
 
+	# Fix for non-integer version number like "6.4"
+	VERSION_ID=$(echo "$VERSION_ID" | cut -d . -f 1)
+
 	# Parrot OS is based on Debian testing, so we use the latest supported Debian codename.
 	write_apt_repo $ID $VERSION_ID $ZT_BASE_URL_HTTP $MAX_SUPPORTED_DEBIAN_VERSION_NAME
 elif [ $ID == "centos" ] || [ $ID == "rocky" ] || [ $ID == "almalinux" ] || [ $ID == "rhel" ] || [ $ID == "fedora" ] || [ $ID == "amzn" ] || [ $ID == "sangoma" ] || [ $ID == "ol" ]; then
