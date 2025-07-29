@@ -17,21 +17,20 @@ ZT_BASE_URL_HTTPS='https://download.zerotier.com/'
 ZT_BASE_URL_HTTP='http://download.zerotier.com/'
 
 ##########################################################
-# 
-#  Maximum Supported Distribution Versions and Codenames
-# 
+# 
+#  Maximum Supported Distribution Versions and Codenames
+# 
 ##########################################################
 
 # Debian
 MAX_SUPPORTED_DEBIAN_VERSION=12
 MAX_SUPPORTED_DEBIAN_VERSION_NAME=bookworm
 
-
 # Ubuntu
 MAX_SUPPORTED_UBUNTU_VERSION=24.04
 MAX_SUPPORTED_UBUNTU_VERSION_NAME=noble
 
-# We only do builds for Ubuntu LTS releases.  Map non-LTS releases to the nearest previous LTS release.
+# We only do builds for Ubuntu LTS releases.  Map non-LTS releases to the nearest previous LTS release.
 declare -A UBUNTU_CODENAME_MAP
 UBUNTU_CODENAME_MAP["trusty"]="trusty"
 UBUNTU_CODENAME_MAP["utopic"]="trusty"
@@ -77,7 +76,7 @@ MINT_CODENAME_MAP["faye"]="bookworm"
 
 ##########################################################
 #
-# End 
+# End 
 #
 ##########################################################
 
@@ -86,14 +85,14 @@ echo '*** ZeroTier Service Quick Install for Unix-like Systems'
 echo
 echo '*** Tested OSes / distributions:'
 echo
-echo '***   MacOS (10.13+) (just installs ZeroTier One.pkg)'
-echo '***   Debian Linux (7+)'
-echo '***   RedHat/CentOS Linux (6+)'
-echo '***   Fedora Linux (16+)'
-echo '***   SuSE Linux (12+)'
-echo '***   Mint Linux (20+)'
-echo '***   Kali Linux (2024.1+)'
-echo '***   Parrot OS (6.0+)'
+echo '***   MacOS (10.13+) (just installs ZeroTier One.pkg)'
+echo '***   Debian Linux (7+)'
+echo '***   RedHat/CentOS Linux (6+)'
+echo '***   Fedora Linux (16+)'
+echo '***   SuSE Linux (12+)'
+echo '***   Mint Linux (20+)'
+echo '***   Kali Linux (2024.1+)'
+echo '***   ParrotOS (6+)'
 echo
 echo '*** Supported architectures vary by OS / distribution. We try to support'
 echo '*** every system architecture supported by the target.'
@@ -225,7 +224,9 @@ write_apt_repo() {
 	VERSION=$2
 	URL=$3
 	CODENAME=$4
-
+	LINUXDESCRIPTION=$(lsb_release -d | awk '{print $2}')
+    MAJOR_VERSION="${VERSION_ID%%.*}"
+    
 	if [ ! -d /usr/share/keyrings ]; then
 		$SUDO mkdir -p /usr/share/keyrings
 	fi
@@ -236,14 +237,16 @@ write_apt_repo() {
 
 	if [[ "$DISTRIBUTION" == "ubuntu" && "$VERSION" < "22.04" ]]; then
 		_old_apt_signing $URL $CODENAME
-	elif [[ ("$DISTRIBUTION" == "debian" || "$DISTRIBUTION" == "raspbian") && "$VERSION" -lt "10" ]]; then
+	elif [[ ("$DISTRIBUTION" == "debian" || "$DISTRIBUTION" == "raspbian") && "$MAJOR_VERSION" -lt "10" && "$CODENAME" != "lory" ]]; then
 		_old_apt_signing $URL $CODENAME
-	elif [[ "$DISTRIBUTION" == "ubuntu" && "$VERSION" > "22.03" ]]; then # comparison to 22.03 is intentional
+	elif [[ "$DISTRIBUTION" == "ubuntu" && "$VERSION" > "22.03" ]]; then  # comparison to 22.03 is intentional
 		_new_apt_signing $URL $CODENAME
-	elif [[ ("$DISTRIBUTION" == "debian" || "$DISTRIBUTION" == "raspbian") && "$VERSION" -ge "10" ]]; then
+	elif [[ ("$DISTRIBUTION" == "debian" || "$DISTRIBUTION" == "raspbian") && "$MAJOR_VERSION" -ge "10" ]]; then
 		_new_apt_signing $URL $CODENAME
-	elif [[ "$DISTRIBUTION" == "kali" || "$DISTRIBUTION" == "parrot" ]]; then
-		_new_apt_signing $URL $CODENAME
+	elif [[ "$DISTRIBUTION" == "kali" ]]; then
+		_new_apt_signing $URL $CODENAME	
+	elif [[ "$DISTRIBUTION" == "debian" && "$CODENAME" == "lory" && "$LINUXDESCRIPTION" == "Parrot" ]]; then	
+	_new_apt_signing "$URL" "bookworm"
 	elif [[ "$DISTRIBUTION" == "linuxmint" && "$VERSION" == "6" ]]; then
 		_new_apt_signing $URL $CODENAME
 	elif [[ "$DISTRIBUTION" == "linuxmint" && ( "$VERSION" == "21" || "$VERSION" -gt "21" ) ]]; then
@@ -280,13 +283,13 @@ fi
 
 source /etc/os-release
 
-if [ $ID == "debian" ] || [ $ID == "raspbian" ]; then
+if [[ "$ID" == "debian" && "$VERSION_CODENAME" != "lory" ]] || [[ "$ID" == "raspbian" ]]; then
 	echo '*** Detected Debian Linux, creating /etc/apt/sources.list.d/zerotier.list'
 
 	# Debian testing/sid does not declare a VERSION_ID in /etc/os-release
 	if [ -z "$VERSION_ID" ] || [ $VERSION_ID -gt $MAX_SUPPORTED_DEBIAN_VERSION ]; then
 		write_apt_repo $ID $MAX_SUPPORTED_DEBIAN_VERSION $ZT_BASE_URL_HTTP $MAX_SUPPORTED_DEBIAN_VERSION_NAME
-	else 
+	else 
 		write_apt_repo $ID $VERSION_ID $ZT_BASE_URL_HTTP $VERSION_CODENAME
 	fi
 elif [ $ID == "ubuntu" ] || [ $ID == "pop" ]; then
@@ -294,31 +297,32 @@ elif [ $ID == "ubuntu" ] || [ $ID == "pop" ]; then
 
 	if [[ "$VERSION_ID" > "$MAX_SUPPORTED_UBUNTU_VERSION" ]]; then
 		write_apt_repo ubuntu $MAX_SUPPORTED_UBUNTU_VERSION $ZT_BASE_URL_HTTP $MAX_SUPPORTED_UBUNTU_VERSION_NAME
-	else 
+	else 
 		write_apt_repo ubuntu $VERSION_ID $ZT_BASE_URL_HTTP ${UBUNTU_CODENAME_MAP[${VERSION_CODENAME}]}
 	fi
+elif [[ $ID == "debian" && $VERSION_CODENAME == "lory" ]]; then
+	echo '*** Detected ParrotOS Linux, creating /etc/apt/sources.list.d/zerotier.list'
+
+	# Remove redundant APT source from /etc/apt/sources.list to prevent duplicate warnings
+	sed -i '/^deb https:\/\/deb.parrot.sh\/parrot lory main contrib non-free$/d' /etc/apt/sources.list
+
+	# ParrotOS testing/sid does declare decimal instead at VERSION_ID in /etc/os-release later to use PRETTYNAME instead
+	write_apt_repo  $ID $VERSION_ID $ZT_BASE_URL_HTTP $VERSION_CODENAME
+
 elif [ $ID == "linuxmint" ]; then
 	echo '*** Detected Linux Mint, creating /etc/apt/sources.list.d/zerotier.list'
- 	
-  	# fix for non integer version number
-  	VERSION_ID=$(echo $VERSION_ID | cut -d . -f 1)
+ 	
+  	# fix for non integer version number
+  	VERSION_ID=$(echo $VERSION_ID | cut -d . -f 1)
 
 	if [[ "$VERSION_ID" -gt "$MAX_SUPPORTED_MINT_VERSION" ]]; then
 		write_apt_repo $ID $MAX_SUPPORTED_MINT_VERSION $ZT_BASE_URL_HTTP $MAX_SUPPORTED_MINT_VERSION_NAME
-	else 
+	else 
 		write_apt_repo $ID $VERSION_ID $ZT_BASE_URL_HTTP ${MINT_CODENAME_MAP[${VERSION_CODENAME}]}
 	fi
 elif [ $ID == "kali" ]; then
 	echo '*** Detected Kali Linux, creating /etc/apt/sources.list.d/zerotier.list'
 
-	write_apt_repo $ID $VERSION_ID $ZT_BASE_URL_HTTP $MAX_SUPPORTED_DEBIAN_VERSION_NAME
-elif [ $ID == "parrot" ]; then
-	echo '*** Detected Parrot OS, creating /etc/apt/sources.list.d/zerotier.list'
-
-	# Fix for non-integer version number like "6.4"
-	VERSION_ID=$(echo "$VERSION_ID" | cut -d . -f 1)
-
-	# Parrot OS is based on Debian testing, so we use the latest supported Debian codename.
 	write_apt_repo $ID $VERSION_ID $ZT_BASE_URL_HTTP $MAX_SUPPORTED_DEBIAN_VERSION_NAME
 elif [ $ID == "centos" ] || [ $ID == "rocky" ] || [ $ID == "almalinux" ] || [ $ID == "rhel" ] || [ $ID == "fedora" ] || [ $ID == "amzn" ] || [ $ID == "sangoma" ] || [ $ID == "ol" ]; then
 	baseurl="${ZT_BASE_URL_HTTP}redhat/el/7"
@@ -374,7 +378,7 @@ elif [ $ID == "opensuse" ] || [ $ID == "suse" ]; then
 	echo '*** Installing zeortier-one package...'
 
 	cat /dev/null | $SUDO zypper install -y zerotier-one
-elif  [ $ID == "opensuse-tumbleweed" ]; then 
+elif  [ $ID == "opensuse-tumbleweed" ]; then 
 	echo '*** Found SuSE Tumbleweed/Leap, adding zypper YUM repo...'	
 	cat /dev/null | $SUDO zypper addrepo -t YUM -G ${ZT_BASE_URL_HTTP}redhat/el/9 zerotier
 
