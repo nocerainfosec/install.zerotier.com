@@ -238,7 +238,7 @@ write_apt_repo() {
 		_old_apt_signing $URL $CODENAME
 	elif [[ ("$DISTRIBUTION" == "debian" || "$DISTRIBUTION" == "raspbian") && "$VERSION" -lt "10" ]]; then
 		_old_apt_signing $URL $CODENAME
-	elif [[ "$DISTRIBUTION" == "ubuntu" && "$VERSION" > "22.03" ]]; then  # comparison to 22.03 is intentional
+	elif [[ "$DISTRIBUTION" == "ubuntu" && "$VERSION" > "22.03" ]]; then # comparison to 22.03 is intentional
 		_new_apt_signing $URL $CODENAME
 	elif [[ ("$DISTRIBUTION" == "debian" || "$DISTRIBUTION" == "raspbian") && "$VERSION" -ge "10" ]]; then
 		_new_apt_signing $URL $CODENAME
