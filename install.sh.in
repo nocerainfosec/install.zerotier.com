@@ -218,7 +218,7 @@ _new_apt_signing() {
 	echo "deb [signed-by=/usr/share/keyrings/zerotier-debian-package-key.gpg] ${URL}debian/$CODENAME $CODENAME main" >/tmp/zt-sources-list
 }
 
-	# shellcheck disable=SC2072
+# shellcheck disable=SC2072
 write_apt_repo() {
 	DISTRIBUTION=$1
 	VERSION=$2
@@ -233,21 +233,21 @@ write_apt_repo() {
 	$SUDO apt-get install -y gpg
 	$SUDO chmod a+r /tmp/zt-gpg-key
 
-	if [[ "$DISTRIBUTION" == "ubuntu" && "$VERSION" < "22.04" ]]; then
+	if [[ "$DISTRIBUTION" == "ubuntu" ]] && dpkg --compare-versions "$VERSION" lt "22.04"; then
 		_old_apt_signing $URL $CODENAME
-	elif [[ ("$DISTRIBUTION" == "debian" || "$DISTRIBUTION" == "raspbian") && "$VERSION" -lt "10" ]]; then
+	elif [[ "$DISTRIBUTION" == "debian" || "$DISTRIBUTION" == "raspbian" ]] && dpkg --compare-versions "$VERSION" lt "10"; then
 		_old_apt_signing $URL $CODENAME
-	elif [[ "$DISTRIBUTION" == "ubuntu" && "$VERSION" > "22.03" ]]; then  # comparison to 22.03 is intentional
+	elif [[ "$DISTRIBUTION" == "ubuntu" ]] && dpkg --compare-versions "$VERSION" ge "22.04"; then
 		_new_apt_signing $URL $CODENAME
-	elif [[ ("$DISTRIBUTION" == "debian" || "$DISTRIBUTION" == "raspbian") && "$VERSION" -ge "10" ]]; then
+	elif [[ "$DISTRIBUTION" == "debian" || "$DISTRIBUTION" == "raspbian" ]] && dpkg --compare-versions "$VERSION" ge "10"; then
 		_new_apt_signing $URL $CODENAME
-	elif [[ "$DISTRIBUTION" == "kali" ]]; then
+	elif [[ "$DISTRIBUTION" == "kali" || "$DISTRIBUTION" == "parrot" ]]; then
 		_new_apt_signing $URL $CODENAME
-	elif [[ "$DISTRIBUTION" == "linuxmint" && "$VERSION" == "6" ]]; then
+	elif [[ "$DISTRIBUTION" == "linuxmint" ]] && dpkg --compare-versions "$VERSION" eq "6"; then
 		_new_apt_signing $URL $CODENAME
-	elif [[ "$DISTRIBUTION" == "linuxmint" && ( "$VERSION" == "21" || "$VERSION" -gt "21" ) ]]; then
+	elif [[ "$DISTRIBUTION" == "linuxmint" ]] && dpkg --compare-versions "$VERSION" ge "21"; then
 		_new_apt_signing $URL $CODENAME
-	elif [[ "$DISTRIBUTION" == "linuxmint" && ( "$VERSION" == "20" || ("$VERSION" -gt "20" && "$VERSION" -lt "21" ) ) ]]; then
+	elif [[ "$DISTRIBUTION" == "linuxmint" ]] && dpkg --compare-versions "$VERSION" ge "20" && dpkg --compare-versions "$VERSION" lt "21"; then
 		_old_apt_signing $URL $CODENAME
 	else
 		echo "Unsupported distribution $DISTRIBUTION $VERSION"
@@ -261,8 +261,6 @@ write_apt_repo() {
 	echo
 	echo '*** Installing zerotier-one package...'
 
-	# Pre-1.1.6 Debian package did not properly enumerate its files, causing
-	# problems when we try to replace it. So just delete them to force.
 	if [ -d /var/lib/zerotier-one ]; then
 		$SUDO rm -f /etc/init.d/zerotier-one /etc/systemd/system/multi-user.target.wants/zerotier-one.service /var/lib/zerotier-one/zerotier-one /usr/local/bin/zerotier-cli /usr/bin/zerotier-cli /usr/local/bin/zero
 	fi
